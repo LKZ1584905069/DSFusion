@@ -4,12 +4,22 @@ import torch
 from options import TrainOptions
 
 
+
 opt = TrainOptions().parse()
-conv_out = 40
 
+# 每个卷积的输出固定值,初始值设为60
+conv_out = opt.Conv_out
+# 最优卷积比例，和最优卷积个数
+good_rate = opt.Conv_goodrate
+good_num = int(conv_out * good_rate)
+# 最差卷积比例，和最差卷积个数 （先不用）
+bad_rate = opt.Conv_badrate
+bad_num = int(conv_out * bad_rate)
 
-
-
+'''
+    使用两个卷积做成一对
+'''
+# 输入是2channel，输出是 2 * conv_out
 class Encoder(nn.Module):
     def __init__(self,in_channel=1):
         super(Encoder, self).__init__()
@@ -60,13 +70,13 @@ class Encoder(nn.Module):
         one3 = self.one3(one2) * conv3
         down3 = self.down3(down2) * conv3
 
-        conv4 = self.conv4(conv3 + one3+down3)
+        conv4 = self.conv4(conv3 + one3 + down3)
         one4 = self.one4(one3) * conv4
         down4 = self.down4(down3) * conv4
 
-        conv5 = self.conv5(conv4 + one4+down4)
+        conv5 = self.conv5(conv4 + one4 + down4)
 
-        return conv5
+        return conv5 + conv1
 
 
 # 空间注意力机制采用max（VIS空间，IR空间）* 混合特征
@@ -148,8 +158,6 @@ class Model(nn.Module):
         channel_ir = self.channel_ir(en_ir - en_vis) * en_ir
         spatial_vis = self.spatial_vis(channel_vis) * channel_vis
         spatial_ir = self.spatial_vis(channel_ir) * channel_ir
-        print(spatial_ir.shape)
-        print(spatial_vis.shape)
         out = self.de(torch.cat((spatial_vis,spatial_ir),1))
         return out
 
